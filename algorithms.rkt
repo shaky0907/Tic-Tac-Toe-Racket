@@ -1,34 +1,12 @@
 #lang racket
-;; A Module for basic functions [description of module]
 
-(provide player-turn? win-move? register-move candidates selection viability depth)
-
-;; (player-turn? turn) produces true if it is player's turn and false otherwise
-;; player-turn?: Sym -> Bool
-
-;; (game-over? board) produces true if game is over, false otherwise
-;; game-over?: Board -> Bool
-
-;; (win? moves) checks if 'moves' is a winning combination
-;; win?: (listof Nat) -> Bool
-
-;; (register-move move board) registers 'move' in brd and produces the
-;; board after the move has been made
-;; register-move: Nat Board -> Board
-
-;; (poss-brds board) produces a list of Boards that are one move from
-;; the current Board
-;; poss-brds: Board -> (listof Board)
+(provide player-turn? win-move? register-move candidates selection viability poss-win best-choice)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; IMPLEMENTATION ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; A Board is a (list Sym (listof Nat) (listof Nat) (listof Nat))
-;; first -> Who's turn it is to play
-;; second -> computer's moves
-;; third -> player's moves
-;; fourth -> remaining moves
-
-;;
+;; A board is a (list turn (list computer's moves) (list player's moves) (list available moves))
+;; Given a board and a movement the win algorithm checks all possible win combinations and returns true or false
+;; Given a board the computer's algorithm checks all possible win movements and blocks the player win possibilities and goes for win combinations too
 
 
 ;;Quicksorts a given list of numbers
@@ -49,30 +27,30 @@
         [else (+ 1 (list-length (cdr lst)))]))
   
 
-;;Returns list of all right available spaces
+;;Returns list of all right available spaces in the grid
 (define (check-right contador1 contador2 contador3 cols rows lst)
   (cond [(equal? contador2 (+ rows 1)) lst]
         [(equal? contador1 cols) (check-right 3 (+ contador2 1) (+ contador3 3) cols rows (append lst (list contador3)))]
         [else (check-right (+ contador1 1) contador2 (+ contador3 1) cols rows (append lst (list contador3)))]))
 
-;;Returns list of all left available spaces
+;;Returns list of all left available spaces in the grid
 (define (check-left contador1 contador2 contador3 cols rows lst)
   (cond [(equal? contador2 (+ rows 1)) lst]
         [(equal? contador1 (- cols 2)) (check-left 1 (+ contador2 1) (+ contador3 3) cols rows (append lst (list contador3)))]
         [else (check-left (+ contador1 1) contador2 (+ contador3 1) cols rows (append lst (list contador3)))]))
 
-;;Returns list of all middle available spaces
+;;Returns list of all middle available spaces in the grid
 (define (check-middle contador1 contador2 contador3 cols rows lst)
   (cond [(equal? contador2 (+ rows 1)) lst]
         [(equal? contador1 (- cols 1)) (check-middle 2 (+ contador2 1) (+ contador3 3) cols rows (append lst (list contador3)))]
         [else (check-middle (+ contador1 1) contador2 (+ contador3 1) cols rows (append lst (list contador3)))]))
 
-;;Returns list of left column
+;;Returns list of left column of the grid
 (define (get-left contador1 contador2 contador3 cols rows lst)
   (cond [(equal? contador2 (+ rows 1)) lst]
         [(equal? contador1 1) (get-left 1 (+ contador2 1) (+ contador3 cols) cols rows (append lst (list contador3)))]))
 
-;;Returns list of right column
+;;Returns list of right column of the grid
 (define (get-right contador1 contador2 contador3 cols rows lst)
   (cond [(equal? contador2 (+ rows 1)) lst]
         [(equal? contador1 cols) (get-right cols (+ contador2 1) (+ contador3 cols) cols rows (append lst (list contador3)))]))
@@ -170,7 +148,7 @@
              (member? (+ move (- cols 1)) brd)) #t]
        [else #f]))
 
-;;Checks all above win-states for memory usage reduction
+;;Checks all above win-states for memory usage reduction, returns true if win combination was found, false otherwise
 (define (win-state? move brd cols rows)
   (define lst1 (check-right '3 '1 '3 cols rows '()))
   (define lst2 (check-left '1 '1 '1 cols rows '()))
@@ -222,7 +200,7 @@
                   (member? (+ move (- cols 1)) brd))) #t]
         [else #f]))
 
-;;Returns a list with possible win movements
+;;Returns a list with possible win movements, uses same algorithm as above
 (define (win-poss move brd cols rows)
   (define lst1 (check-right '3 '1 '3 cols rows '()))
   (define lst2 (check-left '1 '1 '1 cols rows '()))
@@ -301,7 +279,7 @@
         [else #f]))
 
 
-;;Adds the move done to the corresponding list, player's list or computer's list
+;;Adds the move done to the corresponding list, player's list or computer's list, !!!!!!and checks if the movement added to add is a win
 (define (register-move move brd)
   (cond [(and (player-turn? (car brd))
               (member? move (cadddr brd)))
@@ -317,78 +295,56 @@
             (remove move (cadddr brd)))]))
       
 
-;;Produces a list of boards one move into the future
-;;(define (poss-brds board)
-  ;;(local[(define (each-rem board rem-lst)
-    ;;       (cond[(empty? rem-lst) '()]
-      ;;          [else (append (list (register-move (first rem-lst) board))
-        ;;                      (each-rem board (rest rem-lst)))]))]
-    ;;(each-rem board (fourth board))))
-
-;;
-;;Produces list of all possible movements
+;;Produces list of all possible movements, if there's no available movements, returns an empty list
 (define (candidates brd)
-  (cond [(null? (cadddr brd)) #f]
+  (cond [(null? (cadddr brd)) '()]
         [else (cadddr brd)]))
-
-;;Checks if candidate is suitable
-(define (viability brd cols rows move)
-  (cond [(equal? (list-length (caddr brd)) 1) (register-move move brd)]
-        [else (register-move move brd)]))
 
 ;;Selects best candidate
 (define (selection brd candidates cols rows)
-  (cond [(equal? (list-length (caddr brd)) 1)
-         (cond [(equal? (caaddr brd) 1) (viability brd cols rows (+ (caaddr brd) 1))]
+  (cond [(equal? (list-length (caddr brd)) 1) ;;If there's only one player move
+         (cond [(equal? (caaddr brd) 1) (viability brd cols rows (+ (caaddr brd) 1))] ;;If the player's move is on any corner checks which move is better
                [(equal? (caaddr brd) cols) (viability brd cols rows (- (caaddr brd) 1))]
                [(equal? (caaddr brd) (- (* cols rows) (- cols 1))) (viability brd cols rows (+ (caaddr brd) 1))]
                [(equal? (caaddr brd) (* cols rows)) (viability brd cols rows (- (caaddr brd) 1))]
-               [(and (or (<= (caaddr brd) cols)
+               [(and (or (<= (caaddr brd) cols) ;;If player's move is on top or bottom rows check which move is better
                          (>= (caaddr brd) (- (* cols rows) (- cols 1))))
                      (member? (caaddr brd) (check-middle '2 '1 '2 cols rows '())))
                 (viability brd cols rows (- (caaddr brd) 1))]
-               [(and (> (caaddr brd) cols)
+               [(and (> (caaddr brd) cols) ;;If player's move is on left or right columns check which move is better
                      (<= (caaddr brd) (- (* cols rows) cols))
                      (or (member? (caaddr brd) (get-left '1 '1 '1 cols rows '()))
                          (member? (caaddr brd) (get-right cols '1 cols cols rows '()))))
                 (viability brd cols rows (- (caaddr brd) cols))]
                [else (viability brd cols rows (- (caaddr brd) (- cols 1)))])]
-        [(and (>= (list-length (caddr brd)) 2)
+        [(and (>= (list-length (caddr brd)) 2) ;;Else if there's two or more player moves and there's a win chance for the player, block it
               (not(null? (poss-win (caddr brd) (cadddr brd) cols rows))))
          (viability brd cols rows (poss-win (caddr brd) (cadddr brd) cols rows))]
-        [(and (>= (list-length (caddr brd)) 2)
+        [(and (>= (list-length (caddr brd)) 2) ;;Else if there's two or more player moves and there's no win chance for the player and there's a win chance for the computer, take the fittest win combination
               (null? (poss-win (caddr brd) (cadddr brd) cols rows))
               (not (null? (poss-win (cadr brd) (cadddr brd) cols rows))))
          (viability brd cols rows (poss-win (cadr brd) (cadddr brd) cols rows))]
-        [(and (>= (list-length (caddr brd)) 2)
+        [(and (>= (list-length (caddr brd)) 2) ;;Else if there's two or more player moves and there's no win chance for player and computer just choose any move randomly
               (null? (poss-win (caddr brd) (cadddr brd) cols rows))
               (null? (poss-win (cadr brd) (cadddr brd) cols rows)))
          (viability brd cols rows (best-choice (cadr brd) (cadddr brd) '() cols rows))]
         [else #f]))
 
+;;Checks if candidate is viable and if it's then it registers the move into the playing board
+(define (viability brd cols rows move)
+  (cond [(equal? (list-length (caddr brd)) 1) (register-move move brd)]
+        [else (register-move move brd)]))
+
+;;Given a set of movements, returns the movement that would produce a win, if there's non returns an empty list
 (define (poss-win movesP movesA cols rows)
   (cond [(null? movesA) movesA]
         [(win-move? (car movesA) (car (list movesP)) cols rows) (car movesA)]
         [else (poss-win movesP (cdr movesA) cols rows)]))
 
+;;Given a set of movements, returns the best possible movement in order to win, if there's non returns an empty list
 (define (best-choice movesC movesA movesA2 cols rows)
   (define lst1 (append movesA movesA2))
   (cond [(null? movesC) (car movesA)]
         [(null? movesA) (best-choice (cdr movesC) lst1 '() cols rows)]
         [(not (null? (win-poss (car movesC) lst1 cols rows))) (car (win-poss (car movesC) lst1 cols rows))]
         [else (best-choice movesC (cdr movesA) (append movesA2 (list (car movesA))) cols rows)]))
-
-(define (best-choice-aux adMoves movesA)
-  (cond [(null? adMoves) adMoves]
-        [(null? movesA) movesA]
-        [(member? (car adMoves) movesA) (car adMoves)]
-        [else (best-choice-aux (cdr adMoves) movesA)]))
-        
-        
-
-;; see interface above [no further info required]
-(define (depth lst n)
-  (cond [(number? lst) (list (- lst n))]
-        [(empty? lst) '()]
-        [else (append (depth (first lst) (+ n .1))
-                      (depth (rest lst) n))]))
