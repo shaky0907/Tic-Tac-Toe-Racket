@@ -280,19 +280,33 @@
 
 
 ;;Adds the move done to the corresponding list, player's list or computer's list, !!!!!!and checks if the movement added to add is a win
-(define (register-move move brd)
+(define (register-move move brd cols rows)
   (cond [(and (player-turn? (car brd))
               (member? move (cadddr brd)))
-         (list 'c
-            (cadr brd)
-            (append (caddr brd) (list move))
-            (remove move (cadddr brd)))]
+         (cond [(win-move? move brd cols rows)
+                (list 'c
+                (cadr brd)
+                (append (caddr brd) (list move))
+                (remove move (cadddr brd))
+                (fifth #t))]
+               [else (list 'c
+                (cadr brd)
+                (append (caddr brd) (list move))
+                (remove move (cadddr brd))
+                (fifth #f))])]
         [(and (not(player-turn? (car brd)))
               (member? move (cadddr brd)))
-         (list 'p
-            (append (cadr brd) (list move))
-            (caddr brd)
-            (remove move (cadddr brd)))]))
+         (cond [(win-move? move brd cols rows)
+                (list 'p
+                (append (cadr brd) (list move))
+                (caddr brd)
+                (remove move (cadddr brd))
+                (fifth #t))]
+               [else (list 'p
+                (append (cadr brd) (list move))
+                (caddr brd)
+                (remove move (cadddr brd))
+                (fifth #f))])]))
       
 
 ;;Produces list of all possible movements, if there's no available movements, returns an empty list
@@ -332,8 +346,8 @@
 
 ;;Checks if candidate is viable and if it's then it registers the move into the playing board
 (define (viability brd cols rows move)
-  (cond [(equal? (list-length (caddr brd)) 1) (register-move move brd)]
-        [else (register-move move brd)]))
+  (cond [(equal? (list-length (caddr brd)) 1) (register-move move brd cols rows)]
+        [else (register-move move brd cols rows)]))
 
 ;;Given a set of movements, returns the movement that would produce a win, if there's non returns an empty list
 (define (poss-win movesP movesA cols rows)
