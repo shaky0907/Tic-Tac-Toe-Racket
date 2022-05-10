@@ -1,6 +1,6 @@
 #lang racket
 
-(provide player-turn? win-move? register-move candidates selection viability poss-win best-choice)
+(provide player-turn? win-move? register-move candidates selection viability objective best-choice)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; IMPLEMENTATION ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -148,7 +148,7 @@
              (member? (+ move (- cols 1)) brd)) #t]
        [else #f]))
 
-;;Checks all above win-states for memory usage reduction, returns true if win combination was found, false otherwise
+;;Solution function, Checks all above win-states for memory usage reduction, returns true if win combination was found, false otherwise
 (define (win-state? move brd cols rows)
   (define lst1 (check-right '3 '1 '3 cols rows '()))
   (define lst2 (check-left '1 '1 '1 cols rows '()))
@@ -283,36 +283,36 @@
 (define (register-move move brd cols rows)
   (cond [(and (player-turn? (car brd))
               (member? move (cadddr brd)))
-         (cond [(win-move? move brd cols rows)
+         (cond [(win-move? move (caddr brd) cols rows)
                 (list 'c
                 (cadr brd)
                 (append (caddr brd) (list move))
                 (remove move (cadddr brd))
-                (fifth #t))]
+                #t)]
                [else (list 'c
                 (cadr brd)
                 (append (caddr brd) (list move))
                 (remove move (cadddr brd))
-                (fifth #f))])]
+                #f)])]
         [(and (not(player-turn? (car brd)))
               (member? move (cadddr brd)))
-         (cond [(win-move? move brd cols rows)
+         (cond [(win-move? move (cadr brd) cols rows)
                 (list 'p
                 (append (cadr brd) (list move))
                 (caddr brd)
                 (remove move (cadddr brd))
-                (fifth #t))]
+                #t)]
                [else (list 'p
                 (append (cadr brd) (list move))
                 (caddr brd)
                 (remove move (cadddr brd))
-                (fifth #f))])]))
+                #f)])]))
       
 
 ;;Produces list of all possible movements, if there's no available movements, returns an empty list
-(define (candidates brd)
+(define (candidates brd cols rows)
   (cond [(null? (cadddr brd)) '()]
-        [else (cadddr brd)]))
+        [else (selection brd (cadddr brd) cols rows)]))
 
 ;;Selects best candidate
 (define (selection brd candidates cols rows)
@@ -331,16 +331,19 @@
                          (member? (caaddr brd) (get-right cols '1 cols cols rows '()))))
                 (viability brd cols rows (- (caaddr brd) cols))]
                [else (viability brd cols rows (- (caaddr brd) (- cols 1)))])]
+        [(and (>= (list-length (cadr brd)) 2) ;;Else if there's two or more computer moves and there's a win chance for the computer, make that movement
+              (not (null? (objective (cadr brd) (cadddr brd) cols rows))))
+         (viability brd cols rows (objective (cadr brd) (cadddr brd) cols rows))]
         [(and (>= (list-length (caddr brd)) 2) ;;Else if there's two or more player moves and there's a win chance for the player, block it
-              (not(null? (poss-win (caddr brd) (cadddr brd) cols rows))))
-         (viability brd cols rows (poss-win (caddr brd) (cadddr brd) cols rows))]
+              (not(null? (objective (caddr brd) (cadddr brd) cols rows))))
+         (viability brd cols rows (objective (caddr brd) (cadddr brd) cols rows))]
         [(and (>= (list-length (caddr brd)) 2) ;;Else if there's two or more player moves and there's no win chance for the player and there's a win chance for the computer, take the fittest win combination
-              (null? (poss-win (caddr brd) (cadddr brd) cols rows))
-              (not (null? (poss-win (cadr brd) (cadddr brd) cols rows))))
-         (viability brd cols rows (poss-win (cadr brd) (cadddr brd) cols rows))]
+              (null? (objective (caddr brd) (cadddr brd) cols rows))
+              (not (null? (objective (cadr brd) (cadddr brd) cols rows))))
+         (viability brd cols rows (objective (cadr brd) (cadddr brd) cols rows))]
         [(and (>= (list-length (caddr brd)) 2) ;;Else if there's two or more player moves and there's no win chance for player and computer just choose any move randomly
-              (null? (poss-win (caddr brd) (cadddr brd) cols rows))
-              (null? (poss-win (cadr brd) (cadddr brd) cols rows)))
+              (null? (objective (caddr brd) (cadddr brd) cols rows))
+              (null? (objective (cadr brd) (cadddr brd) cols rows)))
          (viability brd cols rows (best-choice (cadr brd) (cadddr brd) '() cols rows))]
         [else #f]))
 
@@ -350,10 +353,10 @@
         [else (register-move move brd cols rows)]))
 
 ;;Given a set of movements, returns the movement that would produce a win, if there's non returns an empty list
-(define (poss-win movesP movesA cols rows)
+(define (objective movesP movesA cols rows)
   (cond [(null? movesA) movesA]
         [(win-move? (car movesA) (car (list movesP)) cols rows) (car movesA)]
-        [else (poss-win movesP (cdr movesA) cols rows)]))
+        [else (objective movesP (cdr movesA) cols rows)]))
 
 ;;Given a set of movements, returns the best possible movement in order to win, if there's non returns an empty list
 (define (best-choice movesC movesA movesA2 cols rows)
