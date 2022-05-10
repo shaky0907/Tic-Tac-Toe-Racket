@@ -3,25 +3,26 @@
 (provide main)
 (provide initialize display-moves)
 (require 2htdp/image)
-(require "algorithms.rkt")
+
 
 ;;GUI variables
 (define size null)
 (define box null)
 (define boxes null)
+(define display-text (text "Hello" 24 "orange"))
 (define text-area null)
 (define ttt-brd null)
 (define n-board null)
 (define m-board null)
+(define player-first (list 'p '() '() '(1 2 3 4 5 6 7 8 9)))
 
 
 
 (define (create-boxes n)
   (set! size 150)
   
-  (cond[(< n 5)(set! box (rectangle size size 'outline 'black))]
-       [(< n 8)(set! size 100)(set! box (rectangle size size 'outline 'black))]
-       [else (set! size 50)(set! box (rectangle size size 'outline 'black))])
+  (cond[(< n 6)(set! box (rectangle size size 'outline 'black))]
+       [else (set! size 80)(set! box (rectangle size size 'outline 'black))])
   (cond[(= n 3) (set! boxes (beside box box box))]
        [(= n 4) (set! boxes (beside box box box box))]
        [(= n 5) (set! boxes (beside box box box box box))]
@@ -35,7 +36,7 @@
 
 
 (define (create-ttt-board n m)
-  (set! text-area (rectangle (* n size) (/ 200 m)  'outline 'white))
+  (set! text-area (rectangle (* n size) (/ size m)  'outline 'white))
   (set! m-board m)
   (set! n-board n)
   (cond[(= m 3) (set! ttt-brd (above boxes boxes boxes text-area))]
@@ -59,27 +60,34 @@
 
 (define (display-moves brd x y me)
   (local (
+          ;; Nat -> Board
+          ;; makes a new board
+          (define (create-board n)
+            (cond [(member? n (fourth brd))
+                  (list 'c
+                  (second brd)
+                  (append (third brd) (list n))
+                  (remove n (fourth brd)))]
+                  [else brd]))
+          
           ;; Get what square the click was made
           (define (get-sq)
-             (cond[(and (string=? me "button-down")(not(gameover? brd))) (sq-num (ceiling(/ x size)) (ceiling(/ y size)) 1 1 1)]
+             (cond[(string=? me "button-down") (sq-num (ceiling(/ x size)) (ceiling(/ y size)) 1 1 1)]
                   [else 0])))
-   
+    
+          
           ;;(print (get-sq))
     (cond
-      [(not(equal? 0 (get-sq)))(register-move (get-sq) brd n-board m-board)]
+      [(not(equal? 0 (get-sq)))(create-board (get-sq))]
       [else brd])))
 
 (define (initialize brd)
   (place-image
-   (text (cond[(and(symbol=? 'p (first brd))(not(gameover? brd)))  "Your Turn"]
-              [(and(symbol=? (who-won brd)'c)
-                   (gameover? brd)) "Computer wins"]
-              [(and (symbol=? (who-won brd) 'p)
-                    (gameover? brd)) "Player wins"]
+   (text (cond[(symbol=? 'p (first brd))  "Your Turn"]
               [else "Computer thinking"])
-         (floor (/ 150 6)) 'green)
+         (floor (/ 100 6)) 'green)
    (floor (/(* n-board size) 2))
-   (floor (+ (* ( + m-board 0.20) size) ))
+   (floor (+ (* ( + m-board 0.17) size) ))
    (foldr p-moves
           (foldr c-moves ttt-brd (second brd))
           (third brd))))
@@ -115,26 +123,6 @@
 (define (grid x y)
   (list (* size (- x .5)) (* size (- y .5))))
 
-(define (re-draw brd)
-   (initialize brd))
-
-
-(define (who-won brd)
-  (cond [(and(symbol=? (first brd) 'p)
-             (equal? (fifth brd) #t)) 'c]
-        [(and(symbol=? (first brd) 'c)
-             (equal? (fifth brd) #t)) 'p]
-        [else 'x]))
-
-(define (gameover? brd)
-  (cond[(or(empty? (fourth brd))
-           (equal? (fifth brd) #t))]
-       [else #f]))
-
-(define (c-turn brd)
-  (cond [(gameover? brd) brd]
-        [(not(player-turn? (first brd))) (candidates brd n-board m-board)]
-        [else brd]))
 
 
 (define (main brd n m)
@@ -143,19 +131,8 @@
         [else (create-boxes n)(create-ttt-board n m)
          (big-bang brd
             (to-draw initialize)
-            (on-mouse display-moves)
-            (on-tick c-turn))]))
+            (on-mouse display-moves))]))
 
 
 
 (define (member? x lst) (not (false? (member x lst))))
-
-(define (give-list n m contador1 contador2 contador3 lst)
-  (cond[(equal? contador2 (+ 1 m)) lst]
-       [(equal? contador1 n)(give-list n m 1 (+ 1 contador2) (+ 1 contador3) (append lst (list contador3)))]
-       [else(give-list n m (+ 1 contador1) contador2 (+ 1 contador3) (append lst (list contador3)))]))
-
-
-(define (TTT n m)
-  
-  (main (list 'p '() '() (give-list n m 1 1 1 '()) #f) n m))
