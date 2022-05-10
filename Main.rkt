@@ -6,13 +6,13 @@
 (require "algorithms.rkt")
 
 ;;GUI variables
-(define size null)
-(define box null)
-(define boxes null)
-(define text-area null)
-(define ttt-brd null)
-(define n-board null)
-(define m-board null)
+(define size null);; tamaño de cajas
+(define box null) ;; Definición de las casillas
+(define boxes null);; Definición de las filas
+(define text-area null) ;; Definición de area de texto
+(define ttt-brd null);; Definición del tablero
+(define n-board null);; Definición cantidad de columnas
+(define m-board null);; Definición cantidad de filas
 
 
 
@@ -76,8 +76,10 @@
                    (gameover? brd)) "Computer wins"]
               [(and (symbol=? (who-won brd) 'p)
                     (gameover? brd)) "Player wins"]
+              [(and (gameover? brd)
+                    (symbol=? (who-won brd) 'x)) "Draw"]
               [else "Computer thinking"])
-         (floor (/ 150 6)) 'green)
+         (floor (/ 150 6)) 'black)
    (floor (/(* n-board size) 2))
    (floor (+ (* ( + m-board 0.20) size) ))
    (foldr p-moves
