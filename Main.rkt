@@ -168,6 +168,8 @@
 (define (main brd n m)
   (cond [(> n 10) 'Tamaño_invalido]
         [(> m 10) 'Tamaño_invalido]
+        [(< n 3) 'Tamaño_invalido]
+        [(< m 3) 'Tamaño_invalido]
         [else (create-boxes n)(create-ttt-board n m)
          (big-bang brd
             (name 'TicTacToe)
