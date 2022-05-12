@@ -170,6 +170,7 @@
         [(> m 10) 'Tamaño_invalido]
         [else (create-boxes n)(create-ttt-board n m)
          (big-bang brd
+            (name 'TicTacToe)
             (to-draw initialize)
             (on-mouse display-moves)
             (on-tick c-turn))]))
